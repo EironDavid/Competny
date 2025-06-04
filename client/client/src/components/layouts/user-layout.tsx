@@ -14,7 +14,10 @@ import {
   LogOut, 
   Menu, 
   X,
-  User
+  User,
+  LayoutDashboard,
+  Search,
+  FileText
 } from "lucide-react";
 
 interface UserLayoutProps {
@@ -39,7 +42,7 @@ export default function UserLayout({ children }: UserLayoutProps) {
   };
 
   const navItems = [
-    { path: "/", label: "Dashboard", icon: <Home className="h-5 w-5" /> },
+    { path: "/dashboard", label: "Dashboard", icon: <Home className="h-5 w-5" /> },
     { path: "/browse-pets", label: "Browse Pets", icon: <PawPrint className="h-5 w-5" /> },
     { path: "/my-applications", label: "My Applications", icon: <ClipboardList className="h-5 w-5" /> },
     { path: "/pet-tracking", label: "Pet Tracking", icon: <MapPin className="h-5 w-5" /> },
@@ -136,7 +139,7 @@ export default function UserLayout({ children }: UserLayoutProps) {
                 <X className="h-6 w-6" />
               </button>
             </div>
-            <nav className="px-2 py-4 space-y-1">
+            <nav className="px-2 py-4 space-y-1 flex-1">
               {navItems.map((item) => (
                 <div key={item.path}>
                   <Link 
@@ -157,6 +160,34 @@ export default function UserLayout({ children }: UserLayoutProps) {
                 </div>
               ))}
             </nav>
+
+            {/* Mobile menu user section */}
+            <div className="p-4 border-t">
+              <div className="flex items-center mb-4">
+                <Avatar>
+                  <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || 'User'}`} />
+                  <AvatarFallback>
+                    <User className="h-5 w-5" />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-gray-700">{user?.name || 'User'}</p>
+                  <p className="text-xs text-gray-500">User</p>
+                </div>
+              </div>
+              <Button 
+                variant="default" 
+                className="w-full"
+                onClick={() => {
+                  handleLogout();
+                  closeMobileMenu();
+                }}
+                disabled={logoutMutation.isPending}
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -166,6 +197,63 @@ export default function UserLayout({ children }: UserLayoutProps) {
         <main className="flex-1 py-16 md:py-6 px-4 sm:px-6 lg:px-8">
           {children}
         </main>
+      </div>
+
+      {/* Mobile Bottom Navigation */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-2 py-2">
+        <div className="flex justify-around items-center max-w-md mx-auto">
+          <Link href="/dashboard">
+            <div className={`flex flex-col items-center py-2 px-1 text-xs rounded-lg transition-colors ${
+              location === "/dashboard" 
+                ? "text-primary bg-primary/10" 
+                : "text-gray-600 hover:text-primary hover:bg-gray-50"
+            }`}>
+              <Home className="h-4 w-4 mb-1" />
+              <span>Home</span>
+            </div>
+          </Link>
+
+          <Link href="/browse-pets">
+            <div className={`flex flex-col items-center py-2 px-1 text-xs rounded-lg transition-colors ${
+              location === "/browse-pets" 
+                ? "text-primary bg-primary/10" 
+                : "text-gray-600 hover:text-primary hover:bg-gray-50"
+            }`}>
+              <Search className="h-4 w-4 mb-1" />
+              <span>Browse</span>
+            </div>
+          </Link>
+
+          <Link href="/my-applications">
+            <div className={`flex flex-col items-center py-2 px-1 text-xs rounded-lg transition-colors ${
+              location === "/my-applications" 
+                ? "text-primary bg-primary/10" 
+                : "text-gray-600 hover:text-primary hover:bg-gray-50"
+            }`}>
+              <FileText className="h-4 w-4 mb-1" />
+              <span>Apps</span>
+            </div>
+          </Link>
+
+          <Link href="/pet-tracking">
+            <div className={`flex flex-col items-center py-2 px-1 text-xs rounded-lg transition-colors ${
+              location === "/pet-tracking" 
+                ? "text-primary bg-primary/10" 
+                : "text-gray-600 hover:text-primary hover:bg-gray-50"
+            }`}>
+              <MapPin className="h-4 w-4 mb-1" />
+              <span>Track</span>
+            </div>
+          </Link>
+
+          <button
+            onClick={handleLogout}
+            className="flex flex-col items-center py-2 px-1 text-xs rounded-lg transition-colors text-gray-600 hover:text-red-600 hover:bg-red-50"
+          >
+            <LogOut className="h-4 w-4 mb-1" />
+            <span>Logout</span>
+          </button>
+        </div>
       </div>
     </div>
   );

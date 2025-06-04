@@ -10,6 +10,7 @@ import { ThemeProvider } from "next-themes";
 // Pages
 import AuthPage from "@/pages/auth-page";
 import NotFound from "@/pages/not-found";
+import HomePage from "@/pages/home-page"; // Added HomePage
 
 // User Pages
 import UserDashboard from "@/pages/user/user-dashboard";
@@ -37,7 +38,8 @@ function Router() {
       <Route path="/auth" component={AuthPage} />
 
       {/* User Routes */}
-      <ProtectedRoute path="/" component={UserDashboard} />
+      <Route path="/" component={HomePage} /> {/* HomePage as landing page */}
+      <ProtectedRoute path="/dashboard" component={UserDashboard} /> {/* Changed path to /dashboard to avoid conflict */}
       <ProtectedRoute path="/browse-pets" component={BrowsePets} />
       <ProtectedRoute path="/pet/:id" component={PetDetail} />
       <ProtectedRoute path="/my-applications" component={MyApplications} />

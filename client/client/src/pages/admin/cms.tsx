@@ -181,7 +181,7 @@ export default function Cms() {
     {
       id: 2,
       title: "About Us",
-      content: "Competny is a dedicated foster management system designed to connect loving temporary homes with animals in need. Our mission is to provide the best possible care for pets awaiting their forever homes by placing them in nurturing foster environments.",
+      content: "PetPals is a dedicated foster management system designed to connect loving temporary homes with animals in need. Our mission is to provide the best possible care for pets awaiting their forever homes by placing them in nurturing foster environments.",
       slug: "about-us",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -189,7 +189,7 @@ export default function Cms() {
     {
       id: 3,
       title: "Fostering FAQ",
-      content: "Frequently Asked Questions about fostering pets with Competny. Learn about the requirements, process, and benefits of becoming a foster parent.",
+      content: "Frequently Asked Questions about fostering pets with PetPals. Learn about the requirements, process, and benefits of becoming a foster parent.",
       slug: "fostering-faq",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),

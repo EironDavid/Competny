@@ -116,7 +116,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           >
             <Menu className="h-6 w-6" />
           </button>
-          <h1 className="text-lg font-bold text-primary">Competny Admin</h1>
+          <h1 className="text-lg font-bold text-primary">ComPetny Admin</h1>
           <Avatar className="h-8 w-8">
             <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || 'Admin'}`} />
             <AvatarFallback>

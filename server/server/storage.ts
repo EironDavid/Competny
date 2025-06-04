@@ -246,7 +246,13 @@ export class DatabaseStorage implements IStorage {
   // Tracking data operations
   async getPetTrackingData(petId: number): Promise<TrackingData[]> {
     return await db
-      .select()
+      .select({
+        id: trackingData.id,
+        pet_id: trackingData.pet_id,
+        location: trackingData.location,
+        health_status: trackingData.health_status,
+        timestamp: trackingData.timestamp
+      })
       .from(trackingData)
       .where(eq(trackingData.pet_id, petId))
       .orderBy(desc(trackingData.timestamp));

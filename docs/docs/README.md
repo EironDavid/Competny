@@ -1,5 +1,5 @@
 
-# Competny Foster Management System Documentation
+# ComPetny Foster Management System Documentation
 
 ## Table of Contents
 1. [Overview](#overview)
@@ -13,7 +13,7 @@
 9. [Contributing Guidelines](#contributing-guidelines)
 
 ## Overview
-Competny is a web-based foster management system that connects potential foster parents with pets in need of temporary homes. The system streamlines the pet fostering process while ensuring the safety and well-being of both pets and foster families.
+ComPetny is a web-based foster management system that connects potential foster parents with pets in need of temporary homes. The system streamlines the pet fostering process while ensuring the safety and well-being of both pets and foster families.
 
 ## System Architecture
 - Frontend: React-based SPA with TypeScript
@@ -195,6 +195,52 @@ DELETE /api/users/:id
 3. Follow coding standards
 4. Write tests
 5. Submit pull request
+
+## Local Development Setup
+
+### Prerequisites
+- Node.js (v20 or later)
+- PostgreSQL (v16 or later)
+
+### Environment Variables
+Create a `.env` file in the root directory with the following variables:
+```env
+DATABASE_URL=postgresql://username:password@localhost:5432/competny
+SESSION_SECRET=your_session_secret_here
+NODE_ENV=development
+```
+
+### Installation Steps
+
+1. Clone the repository
+```bash
+git clone <repository-url>
+cd competny
+```
+
+2. Install dependencies
+```bash
+npm install
+```
+
+3. Set up the database
+```bash
+npm run db:push
+```
+
+4. Start the development server
+```bash
+npm run dev
+```
+
+The application will be available at `http://0.0.0.0:5000`
+
+### Development Scripts
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run check` - Type check with TypeScript
+- `npm run db:push` - Push database schema changes
 
 ## License
 MIT License

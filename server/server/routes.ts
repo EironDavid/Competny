@@ -333,6 +333,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Add pet tracking data
+  app.post("/api/pet-tracking", async (req: any, res: any) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { 
+        pet_id, 
+        location, 
+        health_status, 
+        activity_level, 
+        phone_coordinates, 
+        tracking_method, 
+        notes 
+      } = req.body;
+
+      if (!pet_id) {
+        return res.status(400).json({ message: "Pet ID is required" });
+      }
+
+      // Verify user has access to this pet (has approved application)
+      const application = await storage.getApprovedApplicationForPet(pet_id);
+      if (!application || application.user_id !== req.user.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const trackingData = await storage.addTrackingData({
+        pet_id,
+        location,
+        health_status,
+        activity_level,
+        phone_coordinates,
+        tracking_method: tracking_method || "phone",
+        notes
+      });
+
+      res.json(trackingData);
+    } catch (error) {
+      console.error("Error adding tracking data:", error);
+      res.status(500).json({ message: "Failed to add tracking data" });
+    }
+  });
+
   // Create or update CMS page
   app.post("/api/admin/cms-pages", async (req, res) => {
     try {
