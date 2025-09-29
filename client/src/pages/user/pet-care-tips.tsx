@@ -43,28 +43,36 @@ type PetCareTip = {
   icon: string;
 };
 
+interface CmsData {
+  content: string | any[];
+}
+
 export default function PetCareTips() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedPetType, setSelectedPetType] = useState("all");
   const [expandedTipId, setExpandedTipId] = useState<string | null>(null);
 
   // Fetch pet care tips from CMS
-  const { data: cmsData, isLoading } = useQuery({
-    queryKey: ["/api/cms-pages/pet-care-tips"],
-    staleTime: 300000,
+  const { data: cmsData } = useQuery<CmsData>({
+    queryKey: ["/api/cms/pet-care-tips"],
   });
 
   // Parse the pet care tips or use fallback data
-  let tipsList: PetCareTip[] = [];
-  try {
-    if (cmsData?.content) {
-      tipsList = JSON.parse(cmsData.content);
+  let tipsList: any[] = [];
+  if (cmsData?.content) {
+    if (typeof cmsData.content === 'string') {
+      try {
+        const parsed = JSON.parse(cmsData.content);
+        tipsList = Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        console.error('Failed to parse CMS content:', e);
+      }
+    } else if (Array.isArray(cmsData.content)) {
+      tipsList = cmsData.content;
     }
-  } catch (error) {
-    console.error("Error parsing pet care tips:", error);
   }
 
-  // Use fallback data if no tips are available
+  // Use fallback data if no tips are available from CMS
   if (tipsList.length === 0) {
     tipsList = [
       {
@@ -150,7 +158,7 @@ export default function PetCareTips() {
   };
 
   // Get unique categories
-  const categories = ["all", ...new Set(tipsList.map(tip => tip.category))];
+  const categories = ["all", ...Array.from(new Set(tipsList.map(tip => tip.category)))];
 
   return (
     <UserLayout>
@@ -162,39 +170,7 @@ export default function PetCareTips() {
           </div>
         </div>
 
-        {isLoading ? (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <Skeleton className="h-6 w-48" />
-                <Skeleton className="h-4 w-72" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-10 w-full" />
-              </CardContent>
-            </Card>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {[1, 2, 3, 4].map((i) => (
-                <Card key={i}>
-                  <CardHeader>
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="h-8 w-8 rounded-full" />
-                      <Skeleton className="h-5 w-40" />
-                    </div>
-                    <Skeleton className="h-4 w-full" />
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-20 w-full" />
-                  </CardContent>
-                  <CardFooter>
-                    <Skeleton className="h-9 w-24" />
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          </div>
-        ) : (
+        {cmsData?.content ? (
           <div className="space-y-6">
             {/* Filters */}
             <Card>
@@ -341,6 +317,38 @@ export default function PetCareTips() {
                 </div>
               </CardContent>
             </Card>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <Skeleton className="h-6 w-48" />
+                <Skeleton className="h-4 w-72" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-10 w-full" />
+              </CardContent>
+            </Card>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {[1, 2, 3, 4].map((i) => (
+                <Card key={i}>
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-8 w-8 rounded-full" />
+                      <Skeleton className="h-5 w-40" />
+                    </div>
+                    <Skeleton className="h-4 w-full" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-20 w-full" />
+                  </CardContent>
+                  <CardFooter>
+                    <Skeleton className="h-9 w-24" />
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
           </div>
         )}
       </div>

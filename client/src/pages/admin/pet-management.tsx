@@ -1,9 +1,9 @@
 import { useState } from "react";
 import AdminLayout from "@/components/layouts/admin-layout";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Pet, insertPetSchema } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,8 +72,24 @@ const petFormSchema = insertPetSchema.extend({
 
 type PetFormValues = z.infer<typeof petFormSchema>;
 
+interface PetFormData {
+  name: string;
+  type: "dog" | "cat" | "other";
+  breed: string;
+  age: number;
+  gender: "male" | "female";
+  description: string;
+  traits: string[];
+  status: "available" | "fostered" | "adopted";
+  health_status: string;
+  location: string;
+  shelter_id?: number;
+  image_url?: string;
+}
+
 export default function PetManagement() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
   const [isAddPetOpen, setIsAddPetOpen] = useState(false);
@@ -81,6 +97,21 @@ export default function PetManagement() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [petTypeFilter, setPetTypeFilter] = useState<string | undefined>(undefined);
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
+  const [uploading, setUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [formData, setFormData] = useState<PetFormData>({
+    name: "",
+    type: "dog",
+    breed: "",
+    age: 0,
+    gender: "male",
+    description: "",
+    traits: [],
+    status: "available",
+    health_status: "healthy",
+    location: "",
+    image_url: ""
+  });
 
   // Fetch all pets
   const { data: pets, isLoading } = useQuery<Pet[]>({
@@ -90,7 +121,7 @@ export default function PetManagement() {
 
   // Create a new pet
   const createPetMutation = useMutation({
-    mutationFn: async (data: PetFormValues) => {
+    mutationFn: async (data: PetFormData) => {
       const res = await apiRequest("POST", "/api/admin/pets", data);
       return await res.json();
     },
@@ -191,6 +222,51 @@ export default function PetManagement() {
     },
   });
 
+  const handleImageUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch('/api/upload/pet-image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Upload failed');
+
+      const data = await response.json();
+      addPetForm.setValue('image_url', data.imageUrl);
+      setImagePreview(data.imageUrl);
+    } catch (error) {
+      console.error('Image upload failed:', error);
+    } finally {
+      setUploading(false);
+    }
+  };
+    const handleImageUploadEdit = async (file: File) => {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch('/api/upload/pet-image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Upload failed');
+
+      const data = await response.json();
+      editPetForm.setValue('image_url', data.imageUrl);
+      setImagePreview(data.imageUrl);
+    } catch (error) {
+      console.error('Image upload failed:', error);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   // Filter pets based on search term and filters
   const filteredPets = pets?.filter((pet) => {
     // Apply search filter
@@ -198,23 +274,58 @@ export default function PetManagement() {
       pet.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       pet.breed.toLowerCase().includes(searchTerm.toLowerCase()) ||
       pet.description.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     // Apply type filter
     const matchesType = !petTypeFilter || pet.type === petTypeFilter;
-    
+
     // Apply status filter
     const matchesStatus = !statusFilter || pet.status === statusFilter;
-    
+
     return matchesSearch && matchesType && matchesStatus;
   });
 
   const handleAddPet = (data: PetFormValues) => {
-    createPetMutation.mutate(data);
+    let traitsArr: string[] = [];
+    const traitsValue: string | string[] = typeof data.traits === "undefined" || data.traits === null ? "" : data.traits;
+    if (Array.isArray(traitsValue)) {
+      traitsArr = traitsValue;
+    } else if (typeof traitsValue === "string") {
+      traitsArr = traitsValue.split(",").map((t) => t.trim());
+    } else {
+      traitsArr = [];
+    }
+    const formData: PetFormData = {
+      ...data,
+      status: data.status || "available",
+      traits: traitsArr,
+      health_status: "healthy",
+      location: "shelter",
+      image_url: data.image_url ?? "",
+      shelter_id: data.shelter_id !== null ? data.shelter_id : undefined
+    };
+    createPetMutation.mutate(formData);
   };
 
   const handleEditPet = (data: PetFormValues) => {
     if (!selectedPet) return;
-    updatePetMutation.mutate({ petId: selectedPet.id, data });
+    let traitsArr: string[] = [];
+    const traitsValue: string | string[] = typeof data.traits === "undefined" || data.traits === null ? "" : data.traits;
+    if (Array.isArray(traitsValue)) {
+      traitsArr = traitsValue;
+    } else if (typeof traitsValue === "string") {
+      traitsArr = traitsValue.split(",").map((t) => t.trim());
+    } else {
+      traitsArr = [];
+    }
+    const formData: Partial<Pet> = {
+      ...data,
+      status: data.status || "available",
+      traits: traitsArr,
+      image_url: data.image_url ?? "",
+      shelter_id: data.shelter_id !== null ? data.shelter_id : undefined
+    };
+    delete (formData as any).id;
+    updatePetMutation.mutate({ petId: selectedPet.id, data: formData });
   };
 
   const handleDeletePet = () => {
@@ -224,7 +335,7 @@ export default function PetManagement() {
 
   const openEditDialog = (pet: Pet) => {
     setSelectedPet(pet);
-    // Set form default values based on the selected pet
+    setImagePreview(pet.image_url || "");
     editPetForm.reset({
       name: pet.name,
       breed: pet.breed,
@@ -233,9 +344,9 @@ export default function PetManagement() {
       gender: pet.gender,
       description: pet.description,
       status: pet.status,
-      traits: (pet.traits as string[]).join(', '),
+      traits: Array.isArray(pet.traits) ? pet.traits : (typeof pet.traits === "string" ? (pet.traits as string).split(",").map((t: string) => t.trim()) : []),
       image_url: pet.image_url || "",
-      shelter_id: pet.shelter_id,
+      shelter_id: pet.shelter_id !== null ? pet.shelter_id : undefined,
     });
     setIsEditPetOpen(true);
   };
@@ -249,6 +360,15 @@ export default function PetManagement() {
     setSearchTerm("");
     setPetTypeFilter(undefined);
     setStatusFilter(undefined);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedPet) {
+      updatePetMutation.mutate({ petId: selectedPet.id, data: formData });
+    } else {
+      createPetMutation.mutate(formData);
+    }
   };
 
   return (
@@ -470,7 +590,7 @@ export default function PetManagement() {
             </DialogDescription>
           </DialogHeader>
           <Form {...addPetForm}>
-            <form onSubmit={addPetForm.handleSubmit(handleAddPet)} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <FormField
                 control={addPetForm.control}
                 name="name"
@@ -484,7 +604,7 @@ export default function PetManagement() {
                   </FormItem>
                 )}
               />
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={addPetForm.control}
@@ -511,7 +631,7 @@ export default function PetManagement() {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={addPetForm.control}
                   name="gender"
@@ -537,7 +657,7 @@ export default function PetManagement() {
                   )}
                 />
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={addPetForm.control}
@@ -558,7 +678,7 @@ export default function PetManagement() {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={addPetForm.control}
                   name="breed"
@@ -573,7 +693,7 @@ export default function PetManagement() {
                   )}
                 />
               </div>
-              
+
               <FormField
                 control={addPetForm.control}
                 name="description"
@@ -591,7 +711,7 @@ export default function PetManagement() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={addPetForm.control}
                 name="traits"
@@ -600,15 +720,16 @@ export default function PetManagement() {
                     <FormLabel>Traits</FormLabel>
                     <FormControl>
                       <Input 
-                        placeholder="Friendly, Energetic, Loyal (comma separated)" 
-                        {...field} 
+                        placeholder="Friendly, Energetic, Loyal (comma separated)"
+                        value={Array.isArray(field.value) ? field.value.join(", ") : ""}
+                        onChange={e => field.onChange(e.target.value.split(",").map((t: string) => t.trim()))}
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={addPetForm.control}
                 name="status"
@@ -634,21 +755,49 @@ export default function PetManagement() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={addPetForm.control}
                 name="image_url"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Image URL (optional)</FormLabel>
+                    <FormLabel>Pet Image</FormLabel>
                     <FormControl>
-                      <Input placeholder="URL to pet image" {...field} />
+                      <div className="space-y-4">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleImageUpload(file);
+                          }}
+                          disabled={uploading}
+                        />
+                        {uploading && <p className="text-sm text-gray-500">Uploading...</p>}
+                        {imagePreview && (
+                          <div className="mt-2">
+                            <img src={imagePreview} alt="Preview" className="h-32 w-32 object-cover rounded-md" />
+                          </div>
+                        )}
+                        <div className="text-sm text-gray-500">
+                          Or enter image URL manually:
+                        </div>
+                        <Input 
+                          placeholder="https://example.com/pet-image.jpg" 
+                          {...field}
+                          value={field.value ?? ""}
+                          onChange={(e) => {
+                            field.onChange(e);
+                            setImagePreview(e.target.value);
+                          }}
+                        />
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={addPetForm.control}
                 name="shelter_id"
@@ -660,6 +809,7 @@ export default function PetManagement() {
                         type="number" 
                         placeholder="Shelter ID" 
                         {...field}
+                        value={field.value !== undefined && field.value !== null ? field.value : ""}
                         onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
                       />
                     </FormControl>
@@ -667,7 +817,7 @@ export default function PetManagement() {
                   </FormItem>
                 )}
               />
-              
+
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsAddPetOpen(false)}>
                   Cancel
@@ -691,7 +841,7 @@ export default function PetManagement() {
             </DialogDescription>
           </DialogHeader>
           <Form {...editPetForm}>
-            <form onSubmit={editPetForm.handleSubmit(handleEditPet)} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <FormField
                 control={editPetForm.control}
                 name="name"
@@ -705,7 +855,7 @@ export default function PetManagement() {
                   </FormItem>
                 )}
               />
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={editPetForm.control}
@@ -732,7 +882,7 @@ export default function PetManagement() {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={editPetForm.control}
                   name="gender"
@@ -758,7 +908,7 @@ export default function PetManagement() {
                   )}
                 />
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={editPetForm.control}
@@ -779,7 +929,7 @@ export default function PetManagement() {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={editPetForm.control}
                   name="breed"
@@ -794,7 +944,7 @@ export default function PetManagement() {
                   )}
                 />
               </div>
-              
+
               <FormField
                 control={editPetForm.control}
                 name="description"
@@ -812,7 +962,7 @@ export default function PetManagement() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={editPetForm.control}
                 name="traits"
@@ -821,15 +971,16 @@ export default function PetManagement() {
                     <FormLabel>Traits</FormLabel>
                     <FormControl>
                       <Input 
-                        placeholder="Friendly, Energetic, Loyal (comma separated)" 
-                        {...field} 
+                        placeholder="Friendly, Energetic, Loyal (comma separated)"
+                        value={Array.isArray(field.value) ? field.value.join(", ") : ""}
+                        onChange={e => field.onChange(e.target.value.split(",").map((t: string) => t.trim()))}
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={editPetForm.control}
                 name="status"
@@ -855,21 +1006,49 @@ export default function PetManagement() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={editPetForm.control}
                 name="image_url"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Image URL (optional)</FormLabel>
+                    <FormLabel>Pet Image</FormLabel>
                     <FormControl>
-                      <Input placeholder="URL to pet image" {...field} />
+                      <div className="space-y-4">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleImageUploadEdit(file);
+                          }}
+                          disabled={uploading}
+                        />
+                        {uploading && <p className="text-sm text-gray-500">Uploading...</p>}
+                        {imagePreview && (
+                          <div className="mt-2">
+                            <img src={imagePreview} alt="Preview" className="h-32 w-32 object-cover rounded-md" />
+                          </div>
+                        )}
+                        <div className="text-sm text-gray-500">
+                          Or enter image URL manually:
+                        </div>
+                        <Input 
+                          placeholder="https://example.com/pet-image.jpg" 
+                          {...field}
+                          value={field.value ?? ""}
+                          onChange={(e) => {
+                            field.onChange(e);
+                            setImagePreview(e.target.value);
+                          }}
+                        />
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={editPetForm.control}
                 name="shelter_id"
@@ -881,6 +1060,7 @@ export default function PetManagement() {
                         type="number" 
                         placeholder="Shelter ID" 
                         {...field}
+                        value={field.value !== undefined && field.value !== null ? field.value : ""}
                         onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
                       />
                     </FormControl>
@@ -888,7 +1068,7 @@ export default function PetManagement() {
                   </FormItem>
                 )}
               />
-              
+
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsEditPetOpen(false)}>
                   Cancel

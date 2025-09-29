@@ -26,6 +26,7 @@ import AdminDashboard from "@/pages/admin/admin-dashboard";
 import UserManagement from "@/pages/admin/user-management";
 import PetManagement from "@/pages/admin/pet-management";
 import FosterApplications from "@/pages/admin/foster-applications";
+import AdminPetTracking from "@/pages/admin/pet-tracking";
 import Reports from "@/pages/admin/reports";
 import Cms from "@/pages/admin/cms";
 import ReviewModeration from "@/pages/admin/review-moderation";
@@ -52,6 +53,7 @@ function Router() {
       <ProtectedRoute path="/admin/users" component={UserManagement} adminOnly />
       <ProtectedRoute path="/admin/pets" component={PetManagement} adminOnly />
       <ProtectedRoute path="/admin/foster-applications" component={FosterApplications} adminOnly />
+      <ProtectedRoute path="/admin/pet-tracking" component={AdminPetTracking} adminOnly />
       <ProtectedRoute path="/admin/reports" component={Reports} adminOnly />
       <ProtectedRoute path="/admin/cms" component={Cms} adminOnly />
       <ProtectedRoute path="/admin/review-moderation" component={ReviewModeration} adminOnly />

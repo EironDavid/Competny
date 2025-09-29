@@ -49,11 +49,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     },
     onError: (error: Error) => {
+      const errorMessage = error.message || "Invalid username or password";
       toast({
         title: "Login failed",
-        description: error.message || "Invalid username or password",
+        description: errorMessage,
         variant: "destructive",
       });
+      console.error("Login error:", error);
     },
   });
 

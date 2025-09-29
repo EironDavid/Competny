@@ -7,6 +7,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -34,6 +35,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -41,6 +52,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Search,
   MoreHorizontal,
@@ -50,6 +68,9 @@ import {
   UserX,
   User as UserIcon,
   RefreshCcw,
+  Plus,
+  Trash2,
+  Edit,
 } from "lucide-react";
 
 export default function UserManagement() {
@@ -57,6 +78,19 @@ export default function UserManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isUserDetailsOpen, setIsUserDetailsOpen] = useState(false);
+  const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
+  const [isEditUserOpen, setIsEditUserOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  
+  // Form state for creating/editing users
+  const [formData, setFormData] = useState({
+    name: "",
+    username: "",
+    email: "",
+    password: "",
+    role: "user" as "user" | "admin"
+  });
 
   // Fetch all users
   const { data: users, isLoading } = useQuery<User[]>({
@@ -64,7 +98,79 @@ export default function UserManagement() {
     staleTime: 60000,
   });
 
-  // Update user role
+  // Create user mutation
+  const createUserMutation = useMutation({
+    mutationFn: async (userData: typeof formData) => {
+      const res = await apiRequest("POST", "/api/admin/users", userData);
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "User created",
+        description: "The user has been created successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setIsCreateUserOpen(false);
+      resetForm();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to create user",
+        description: error.message || "An error occurred while creating the user.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update user mutation
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ userId, userData }: { userId: number; userData: Partial<typeof formData> }) => {
+      const res = await apiRequest("PATCH", `/api/admin/users/${userId}`, userData);
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "User updated",
+        description: "The user has been updated successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setIsEditUserOpen(false);
+      resetForm();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to update user",
+        description: error.message || "An error occurred while updating the user.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete user mutation
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: number) => {
+      const res = await apiRequest("DELETE", `/api/admin/users/${userId}`);
+      return res;
+    },
+    onSuccess: () => {
+      toast({
+        title: "User deleted",
+        description: "The user has been deleted successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setIsDeleteDialogOpen(false);
+      setUserToDelete(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to delete user",
+        description: error.message || "An error occurred while deleting the user.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update user role (keeping existing functionality)
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: number; role: string }) => {
       const res = await apiRequest("PATCH", `/api/admin/users/${userId}`, { role });
@@ -103,8 +209,56 @@ export default function UserManagement() {
     setIsUserDetailsOpen(true);
   };
 
+  const handleEditUser = (user: User) => {
+    setSelectedUser(user);
+    setFormData({
+      name: user.name,
+      username: user.username,
+      email: user.email,
+      password: "",
+      role: user.role as "user" | "admin"
+    });
+    setIsEditUserOpen(true);
+  };
+
+  const handleDeleteUser = (user: User) => {
+    setUserToDelete(user);
+    setIsDeleteDialogOpen(true);
+  };
+
   const handleUpdateRole = (userId: number, newRole: string) => {
-    updateRoleMutation.mutate({ userId, newRole });
+    updateRoleMutation.mutate({ userId, role: newRole });
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      username: "",
+      email: "",
+      password: "",
+      role: "user"
+    });
+    setSelectedUser(null);
+  };
+
+  const handleCreateUser = () => {
+    createUserMutation.mutate(formData);
+  };
+
+  const handleUpdateUser = () => {
+    if (selectedUser) {
+      const updateData: Partial<User> = { ...formData };
+      if (!updateData.password) {
+        delete updateData.password;
+      }
+      updateUserMutation.mutate({ userId: selectedUser.id, userData: updateData });
+    }
+  };
+
+  const confirmDeleteUser = () => {
+    if (userToDelete) {
+      deleteUserMutation.mutate(userToDelete.id);
+    }
   };
 
   return (
@@ -115,6 +269,10 @@ export default function UserManagement() {
             <h1 className="text-2xl font-semibold text-gray-900">User Management</h1>
             <p className="text-gray-600">Manage system users and their roles</p>
           </div>
+          <Button onClick={() => setIsCreateUserOpen(true)} className="mt-4 sm:mt-0">
+            <Plus className="h-4 w-4 mr-2" />
+            Add New User
+          </Button>
         </div>
 
         <Card className="mb-6">
@@ -196,6 +354,10 @@ export default function UserManagement() {
                               <UserCog className="h-4 w-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditUser(user)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit User
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {user.role === "user" ? (
                               <DropdownMenuItem 
@@ -214,6 +376,14 @@ export default function UserManagement() {
                                 Make Regular User
                               </DropdownMenuItem>
                             )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={() => handleDeleteUser(user)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete User
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -245,7 +415,7 @@ export default function UserManagement() {
           </CardContent>
         </Card>
 
-        {/* User activity statistics card - this would be connected to actual data in a real implementation */}
+        {/* User activity statistics card */}
         <Card>
           <CardHeader>
             <CardTitle>User Activity Overview</CardTitle>
@@ -320,37 +490,6 @@ export default function UserManagement() {
                   <div className="mt-1">{selectedUser.id}</div>
                 </div>
               </div>
-              
-              <div className="pt-4 border-t">
-                <h4 className="text-sm font-medium text-gray-500 mb-2">Actions</h4>
-                <div className="flex gap-2">
-                  {selectedUser.role === "user" ? (
-                    <Button 
-                      size="sm"
-                      onClick={() => {
-                        handleUpdateRole(selectedUser.id, "admin");
-                        setIsUserDetailsOpen(false);
-                      }}
-                      disabled={updateRoleMutation.isPending}
-                    >
-                      <Shield className="h-4 w-4 mr-2" />
-                      Make Admin
-                    </Button>
-                  ) : (
-                    <Button 
-                      size="sm"
-                      onClick={() => {
-                        handleUpdateRole(selectedUser.id, "user");
-                        setIsUserDetailsOpen(false);
-                      }}
-                      disabled={updateRoleMutation.isPending}
-                    >
-                      <UserCheck className="h-4 w-4 mr-2" />
-                      Make Regular User
-                    </Button>
-                  )}
-                </div>
-              </div>
             </div>
           )}
           
@@ -361,6 +500,185 @@ export default function UserManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Create User Dialog */}
+      <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New User</DialogTitle>
+            <DialogDescription>
+              Add a new user to the system
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="name">Full Name</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="Enter full name"
+              />
+            </div>
+            <div>
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                placeholder="Enter username"
+              />
+            </div>
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="Enter email address"
+              />
+            </div>
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                placeholder="Enter password"
+              />
+            </div>
+            <div>
+              <Label htmlFor="role">Role</Label>
+              <Select value={formData.role} onValueChange={(value: "user" | "admin") => setFormData({ ...formData, role: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIsCreateUserOpen(false); resetForm(); }}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateUser}
+              disabled={createUserMutation.isPending || !formData.name || !formData.username || !formData.email || !formData.password}
+            >
+              {createUserMutation.isPending ? "Creating..." : "Create User"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>
+              Update user information
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-name">Full Name</Label>
+              <Input
+                id="edit-name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="Enter full name"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-username">Username</Label>
+              <Input
+                id="edit-username"
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                placeholder="Enter username"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-email">Email</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="Enter email address"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-password">Password (leave blank to keep current)</Label>
+              <Input
+                id="edit-password"
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                placeholder="Enter new password"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-role">Role</Label>
+              <Select value={formData.role} onValueChange={(value: "user" | "admin") => setFormData({ ...formData, role: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIsEditUserOpen(false); resetForm(); }}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleUpdateUser}
+              disabled={updateUserMutation.isPending || !formData.name || !formData.username || !formData.email}
+            >
+              {updateUserMutation.isPending ? "Updating..." : "Update User"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete User Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the user account for{" "}
+              <strong>{userToDelete?.name}</strong> and remove all their data from the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setIsDeleteDialogOpen(false); setUserToDelete(null); }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteUser}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteUserMutation.isPending}
+            >
+              {deleteUserMutation.isPending ? "Deleting..." : "Delete User"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 }

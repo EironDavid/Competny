@@ -15,7 +15,8 @@ import {
   LogOut, 
   Menu, 
   X,
-  User
+  User,
+  MapPin
 } from "lucide-react";
 
 interface AdminLayoutProps {
@@ -48,6 +49,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { path: "/admin/cms", label: "CMS", icon: <FileText className="h-5 w-5" /> },
     { path: "/admin/review-moderation", label: "Review Moderation", icon: <Star className="h-5 w-5" /> },
     { path: "/admin/security-logs", label: "Security Logs", icon: <Shield className="h-5 w-5" /> },
+    { path: "/admin/pet-tracking", label: "Pet Tracking", icon: <MapPin className="h-5 w-5" /> },
   ];
 
   return (

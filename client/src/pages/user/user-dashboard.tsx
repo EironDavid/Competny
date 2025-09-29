@@ -11,6 +11,10 @@ import ApplicationStatusBadge from "@/components/application-status-badge";
 import { Pet, FosterApplication } from "@shared/schema";
 import { Skeleton } from "@/components/ui/skeleton";
 
+interface CmsData {
+  content: string | any[];
+}
+
 export default function UserDashboard() {
   const { user } = useAuth();
 
@@ -27,22 +31,38 @@ export default function UserDashboard() {
   });
 
   // Fetch pet care tips from CMS
-  const { data: petCareTips } = useQuery({
-    queryKey: ["/api/cms-pages/pet-care-tips"],
-    staleTime: 300000,
+  const { data: petCareTips } = useQuery<CmsData>({
+    queryKey: ["/api/cms/pet-care-tips"],
   });
 
-  // We'll use static tips for now since the content is markdown, not JSON
-  const tipsList = [
-    {
-      title: "Regular Veterinary Check-ups",
-      description: "Schedule annual wellness exams and keep vaccinations up to date."
-    },
-    {
-      title: "Proper Nutrition",
-      description: "Provide a balanced, high-quality diet appropriate for your pet's age and health."
+  // Parse the pet care tips from CMS
+  let tipsList: any[] = [];
+  if (petCareTips?.content) {
+    if (typeof petCareTips.content === 'string') {
+      try {
+        const parsed = JSON.parse(petCareTips.content);
+        tipsList = Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        console.error('Failed to parse CMS content:', e);
+      }
+    } else if (Array.isArray(petCareTips.content)) {
+      tipsList = petCareTips.content;
     }
-  ];
+  }
+
+  // Use fallback tips if no tips are available from CMS
+  if (tipsList.length === 0) {
+    tipsList = [
+      {
+        title: "Regular Veterinary Check-ups",
+        description: "Schedule annual wellness exams and keep vaccinations up to date."
+      },
+      {
+        title: "Proper Nutrition",
+        description: "Provide a balanced, high-quality diet appropriate for your pet's age and health."
+      }
+    ];
+  }
 
   return (
     <UserLayout>

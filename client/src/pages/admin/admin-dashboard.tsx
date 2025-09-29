@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import AdminLayout from "@/components/layouts/admin-layout";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,12 +19,35 @@ import {
 import ApplicationStatusBadge from "@/components/application-status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
+interface Stats {
+  counts: {
+    activeUsers: number;
+    activePets: number;
+    approvedApplications: number;
+    pendingApplications: number;
+  };
+  recentApplications: Array<{
+    id: number;
+    status: string;
+    // Add other application properties as needed
+  }>;
+}
+
 export default function AdminDashboard() {
   // Fetch dashboard stats
-  const { data: stats, isLoading } = useQuery({
-    queryKey: ["/api/admin/dashboard-stats"],
+  const { data: stats, isLoading } = useQuery<Stats>({
+    queryKey: ["adminStats"],
+    queryFn: async () => {
+      const response = await fetch("/api/admin/stats");
+      if (!response.ok) {
+        throw new Error("Failed to fetch admin stats");
+      }
+      return response.json();
+    },
     staleTime: 60000,
   });
+
+  const [statsState, setStatsState] = useState<Stats | null>(null);
 
   if (isLoading) {
     return (

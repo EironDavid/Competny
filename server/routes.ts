@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
@@ -9,13 +10,63 @@ import {
   insertReviewSchema, 
   insertCmsPageSchema, 
   insertTrackingDataSchema,
-  insertNotificationSchema 
+  insertNotificationSchema,
+  insertUserSchema,
+  cmsPages
 } from "@shared/schema";
 import { eq, and, desc, asc } from "drizzle-orm";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+// Configure multer for file uploads
+const storage_multer = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = 'uploads/pets';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'pet-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage: storage_multer,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'));
+    }
+  }
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Sets up authentication routes (/api/register, /api/login, /api/logout, /api/user)
   setupAuth(app);
+
+  // Serve uploaded images
+  app.use('/uploads', express.static('uploads'));
+
+  // Upload pet image
+  app.post("/api/upload/pet-image", upload.single('image'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No image file provided" });
+      }
+
+      const imageUrl = `/uploads/pets/${req.file.filename}`;
+      res.json({ imageUrl });
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      res.status(500).json({ message: "Failed to upload image" });
+    }
+  });
 
   // ==== User Routes ====
 
@@ -266,6 +317,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete a user (admin only)
+  app.delete("/api/admin/users/:id", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      
+      // Prevent admin from deleting themselves
+      if (req.user && req.user.id === userId) {
+        return res.status(400).json({ message: "Cannot delete your own account" });
+      }
+
+      await storage.deleteUser(userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
+  // Create a new user (admin only)
+  app.post("/api/admin/users", async (req, res) => {
+    try {
+      const validatedData = insertUserSchema.parse(req.body);
+      const user = await storage.createUser(validatedData);
+      res.status(201).json(user);
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(400).json({ message: "Invalid user data or username/email already exists" });
+    }
+  });
+
   // Get all foster applications (admin only)
   app.get("/api/admin/foster-applications", async (req, res) => {
     try {
@@ -377,6 +458,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all CMS pages (admin only)
+  app.get("/api/admin/cms-pages", async (req, res) => {
+    try {
+      const pages = await storage.getAllCmsPages();
+      res.json(pages);
+    } catch (error) {
+      console.error("Error fetching CMS pages:", error);
+      res.status(500).json({ message: "Failed to fetch CMS pages" });
+    }
+  });
+
   // Create or update CMS page
   app.post("/api/admin/cms-pages", async (req, res) => {
     try {
@@ -386,6 +478,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating/updating CMS page:", error);
       res.status(400).json({ message: "Invalid CMS page data" });
+    }
+  });
+
+  // Update CMS page
+  app.patch("/api/admin/cms-pages/:id", async (req, res) => {
+    try {
+      const pageId = parseInt(req.params.id);
+      const validatedData = insertCmsPageSchema.parse(req.body);
+      
+      const [updated] = await db.update(cmsPages)
+        .set({
+          ...validatedData,
+          updated_at: new Date()
+        })
+        .where(eq(cmsPages.id, pageId))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ message: "Page not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating CMS page:", error);
+      res.status(400).json({ message: "Invalid CMS page data" });
+    }
+  });
+
+  // Delete CMS page
+  app.delete("/api/admin/cms-pages/:id", async (req, res) => {
+    try {
+      const pageId = parseInt(req.params.id);
+      await storage.deleteCmsPage(pageId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting CMS page:", error);
+      res.status(500).json({ message: "Failed to delete CMS page" });
     }
   });
 
@@ -470,6 +599,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
+    }
+  });
+
+  // Get adoption report data
+  app.get("/api/admin/reports/adoption", async (req, res) => {
+    try {
+      const data = await storage.getAdoptionReportData();
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching adoption report:", error);
+      res.status(500).json({ message: "Failed to fetch adoption report" });
+    }
+  });
+
+  // Get application report data
+  app.get("/api/admin/reports/applications", async (req, res) => {
+    try {
+      const data = await storage.getApplicationReportData();
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching application report:", error);
+      res.status(500).json({ message: "Failed to fetch application report" });
+    }
+  });
+
+  // Get user report data
+  app.get("/api/admin/reports/users", async (req, res) => {
+    try {
+      const data = await storage.getUserReportData();
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching user report:", error);
+      res.status(500).json({ message: "Failed to fetch user report" });
+    }
+  });
+
+  // Get pet report data
+  app.get("/api/admin/reports/pets", async (req, res) => {
+    try {
+      const data = await storage.getPetReportData();
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching pet report:", error);
+      res.status(500).json({ message: "Failed to fetch pet report" });
+    }
+  });
+
+  // Export reports to Excel
+  app.get("/api/admin/reports/export", async (req, res) => {
+    try {
+      const reportType = req.query.type as string;
+      let data: any[] = [];
+      let filename = "report.xlsx";
+
+      switch (reportType) {
+        case "adoption":
+          data = await storage.getAdoptionReportData();
+          filename = "adoption-report.xlsx";
+          break;
+        case "applications":
+          data = await storage.getApplicationReportData();
+          filename = "application-report.xlsx";
+          break;
+        case "pets":
+          data = await storage.getPetReportData();
+          filename = "pet-report.xlsx";
+          break;
+        case "users":
+          data = await storage.getUserReportData();
+          filename = "user-report.xlsx";
+          break;
+        default:
+          return res.status(400).json({ message: "Invalid report type" });
+      }
+
+      const excelBuffer = await storage.generateExcelReport(data, reportType);
+      
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(excelBuffer);
+    } catch (error) {
+      console.error("Error exporting report:", error);
+      res.status(500).json({ message: "Failed to export report" });
     }
   });
 

@@ -29,7 +29,9 @@ import {
   AlertCircle,
   Navigation,
   Zap,
-  Heart
+  Heart,
+  CheckCircle,
+  RefreshCcw
 } from "lucide-react";
 import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -717,22 +719,19 @@ function TrackingInformation({ pet, trackingData }: { pet: Pet; trackingData: Tr
   );
 
   // Get health status display info
-  const getHealthStatus = (status: string | undefined) => {
-    if (!status) return { label: "Unknown", color: "bg-gray-100 text-gray-800", icon: "❓" };
-
+  const getHealthStatus = (status: string | null | undefined) => {
+    const defaultStatus = { color: 'bg-gray-100', icon: <Activity className="h-4 w-4" />, label: 'Unknown' };
+    if (!status) return defaultStatus;
+    
     switch (status.toLowerCase()) {
-      case "excellent":
-        return { label: "Excellent", color: "bg-green-100 text-green-800", icon: "💚" };
-      case "good":
-        return { label: "Good", color: "bg-blue-100 text-blue-800", icon: "💙" };
-      case "fair":
-        return { label: "Fair", color: "bg-yellow-100 text-yellow-800", icon: "💛" };
-      case "poor":
-        return { label: "Poor", color: "bg-red-100 text-red-800", icon: "❤️" };
-      case "monitoring":
-        return { label: "Monitoring", color: "bg-purple-100 text-purple-800", icon: "👁️" };
+      case 'healthy':
+        return { color: 'bg-green-100', icon: <CheckCircle className="h-4 w-4" />, label: 'Healthy' };
+      case 'sick':
+        return { color: 'bg-red-100', icon: <AlertCircle className="h-4 w-4" />, label: 'Sick' };
+      case 'recovering':
+        return { color: 'bg-yellow-100', icon: <RefreshCcw className="h-4 w-4" />, label: 'Recovering' };
       default:
-        return { label: status, color: "bg-gray-100 text-gray-800", icon: "📊" };
+        return defaultStatus;
     }
   };
 
